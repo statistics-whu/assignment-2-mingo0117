@@ -1,0 +1,882 @@
+---
+title: "第二次作业"
+author: "舒明"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    includes:
+      in_header: header.tex
+    latex_engine: xelatex
+  html_document:
+    df_print: paged
+  word_document: default
+always_allow_html: true
+---
+
+```{r setup, include = FALSE,echo = FALSE}
+knitr::opts_chunk$set(echo = FALSE,error = FALSE, warning = FALSE, message = FALSE,
+                      out.width = "100%", split = FALSE, fig.align = "center")
+
+# 需要才安装
+if (!require(showtext)) install.packages("showtext")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(trend)) install.packages("trend")
+if (!require(knitr)) install.packages("knitr")
+if (!require(kableExtra)) install.packages("kableExtra")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(e1071)) install.packages("e1071")
+if (!require(readr)) install.packages("readr")
+if (!require(skimr)) install.packages("skimr")
+if (!require(DataExplorer)) install.packages("DataExplorer")
+if (!require(BSDA)) install.packages("BSDA")
+if (!require(readxl)) install.packages("readxl")
+
+# 加载所需的库
+library(showtext)
+library(ggplot2)
+library(trend)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(e1071)
+library(readr)
+library(skimr)
+library(DataExplorer)
+library(BSDA)
+library(readxl)
+showtext_auto()
+```
+
+**Question #1:** BigBangTheory. (Attached Data: BigBangTheory)
+
+*The Big Bang Theory*, a situation comedy featuring Johnny Galecki, Jim Parsons, and Kaley Cuoco-Sweeting, is one of the most-watched programs on network television. The first two episodes for the 2011–2012 season premiered on September 22, 2011; the first episode attracted 14.1 million viewers and the second episode attracted 14.7 million viewers. The attached data file BigBangTheory shows the number of viewers in millions for the first 21 episodes of the 2011–2012 season (*the Big Bang theory* website, April 17, 2012).
+
+a.  Compute the minimum and the maximum number of viewers.
+
+    ```{r}
+
+    # 读取数据
+    data <- read_csv("./data/BigBangTheory.csv", col_types = cols(
+      `Air Date` = col_date(format = "%B %d, %Y"),
+      `Viewers (millions)` = col_double()
+    ))
+
+    # 查看数据
+    # head(data)
+    # str(data)
+
+    # 数据预处理
+    data <- data %>%
+      mutate(Episodes = row_number())
+
+    # 提取一些可复用的变量和函数
+    viewers <- data$`Viewers (millions)`
+    printRes <- function(func, value) {
+      # 获取函数的名称
+      func_name <- deparse(substitute(func))
+      # 打印函数名和值
+      cat(func_name, ":", func(value), "\n")
+    }
+
+    printRes(min,viewers)
+    printRes(max,viewers)
+    ```
+
+b.  Compute the mean, median, and mode.
+
+    ```{r}
+    printRes(mean,viewers)
+    printRes(median,viewers)
+    mode <- function(x) {
+      ux <- unique(x)
+      ux[which.max(tabulate(match(x, ux)))]
+    }
+    printRes(mode,viewers)
+    ```
+
+c.  Compute the first and third quartiles.
+
+    ```{r}
+    Q1 <- function(x) {quantile(x, 0.25)}
+    Q3 <- function(x) {quantile(x, 0.75)}
+    printRes(Q1,viewers)
+    printRes(Q3,viewers)
+    ```
+
+d.  has viewership grown or declined over the 2011–2012 season? Discuss.
+
+    ```{r}
+    # 可视化
+    ggplot(data, aes(x = `Episodes`, y = `Viewers (millions)`)) +
+      geom_line(color = "blue") + # 折线图
+      geom_smooth(method = "lm", color = "red", se = FALSE) + #线性拟合
+      labs(title = "The Big Bang Theory Viewership Over Time",
+           x = "Episodes",
+           y = "Viewers (millions)")
+
+    # 执行Mann-Kendall趋势检验
+    mk.test(data$`Viewers (millions)`, continuity = TRUE)
+    ```
+
+    **收视率从短期看波动较大，有涨有跌，呈现出不稳定趋势；长期看呈现出轻微的上升趋势——但这种趋势极大概率是由于随机波动造成的，而不是一个显著的长期趋势。**
+
+    *解释：*
+
+    *1、收视率和观众人数*
+
+    *我理解的收视率（viewership）和观众人数（viewers）是两个概念。*
+
+    *收视率的常见统计方式如下：*
+
+    *收视率 = ( 实际观看人数 / 总潜在观众人数​ ) × 100%*
+
+    *本题的观众人数（viewers）是实际观看人数，但每集的总潜在观众人数未知。如果总潜在观众人数基本固定，那么可认为数据集的时间区间（September 22, 2011 \~ April 5, 2012）内，收视率（viewership）趋势等同于观众人数（viewers）趋势。只有基于这个前提，才能讨论收视率的趋势；否则无法得出结论。*
+
+    *2、折线图和拟合线*
+
+    *折线图可直观地看出短期趋势，有涨有跌；长期趋势从拟合线（线性）上看，呈上涨趋势，但有待进一步检验是否存在显著趋势。*
+
+    *3、Mann-Kendall 趋势检验*
+
+    *由于数据集是时序数据，我们可以通过Mann-Kendall 趋势检验来判断是否存在显著趋势。*
+
+    *检验假设如下：*
+
+    $H_0$ ：数据中不存在趋势。 $H_1$ ：数据中存在趋势。
+
+    *如果检验的 p 值低于一定的显着性水平（一般为0.05），则有统计显著性证据表明时间序列数据中存在趋势。而从检验结果来看，S值（48.0000000）为正，代表趋势为上升趋势；tau值（0.2307799）接近于0，表示趋势较弱或几乎不存在；p值（0.1551）大于0.05，表明在统计上我们不能拒绝零假设，即数据中没有显著的趋势。*
+
+**Question #2:** NBAPlayerPts. (Attached Data: NBAPlayerPts)
+
+CbSSports.com developed the Total Player Rating system to rate players in the National Basketball Association (NBA) based on various offensive and defensive statistics. The attached data file NBAPlayerPts shows the average number of points scored per game (PPG) for 50 players with the highest ratings for a portion of the 2012–2013 NBA season (CbSSports.com website, February 25, 2013). Use classes starting at 10 and ending at 30 in increments of 2 for PPG in the following.
+
+a.  Show the frequency distribution.
+
+    ```{r}
+    # 加载数据
+    data <- read.csv("./data/NBAPlayerPts.csv", stringsAsFactors = FALSE)
+
+    # 定义PPG的区间
+    classes <-  seq(10, 30, by = 2)
+
+    # 绘制频率分布表直方图
+    ggplot(data, aes(x = PPG)) +
+      geom_histogram(breaks = classes, fill = "blue", color = "black") +
+      scale_x_continuous(breaks = classes) +  # 设置x轴刻度
+      labs(title = "Frequency Distribution of PPG",
+           x = "PPG Range",
+           y = "Frequency") +
+      theme_minimal()
+
+    # 创建频率分布表
+    freq_table <- table(cut(data$PPG, breaks = classes, include.lowest = TRUE))
+    # 将table对象转换为数据框
+    freq_df <- as.data.frame(freq_table)
+    # 重命名列
+    names(freq_df) <- c("PPG Range", "Frequency")
+    # 使用kable函数创建表格
+    kable(freq_df, caption = "Frequency Distribution of PPG", format = "markdown")%>%
+      kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F)
+    ```
+
+b.  Show the relative frequency distribution.
+
+    ```{r}
+    # 计算相对频数
+    freq_df$Relative_Frequency <- freq_df$Frequency / sum(freq_df$Frequency)
+
+    # 使用geom_bar绘制相对频数
+    ggplot(freq_df, aes(x = `PPG Range`, y = Relative_Frequency)) +
+      geom_bar(stat = "identity", fill = "blue", color = "black") +
+      labs(title = "Relative Frequency Distribution of PPG",
+           x = "PPG Range",
+           y = "Relative Frequency") +
+      theme_minimal()
+
+
+    kable(freq_df, caption = "Relative Frequency Distribution of PPG", format = "markdown") %>%
+      kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F)
+
+    ```
+
+c.  Show the cumulative percent frequency distribution.
+
+    ```{r}
+    # 计算累积百分比频数
+    freq_df$Cumulative_Percent_Frequency <- cumsum(freq_df$Relative_Frequency) * 100
+
+    # 使用geom_bar绘制相对频数
+    ggplot(freq_df, aes(x = `PPG Range`, y = Cumulative_Percent_Frequency)) +
+      geom_bar(stat = "identity", fill = "blue", color = "black") +
+      labs(title = "Cumulative Percent Frequency Distribution of PPG",
+           x = "PPG Range",
+           y = "Cumulative Percent Frequency (%)") +
+      theme_minimal()
+
+    freq_df$Cumulative_Percent_Frequency <- paste0(round(freq_df$Cumulative_Percent_Frequency, 2), "%")
+
+    kable(freq_df, caption = "Cumulative Percent Frequency of PPG", format = "markdown", align = 'r') %>%
+      kable_styling(bootstrap_options = c("striped", "bordered"), full_width = F)
+    ```
+
+d.  Develop a histogram for the average number of points scored per game.
+
+    ```{r}
+    # 问题a已实现
+    ggplot(data, aes(x = PPG)) +
+      geom_histogram(breaks = classes, fill = "blue", color = "black") +
+      scale_x_continuous(breaks = classes) +  # 设置x轴刻度
+      labs(title = "Frequency Distribution of PPG",
+           x = "PPG Range",
+           y = "Frequency") +
+      theme_minimal()
+    ```
+
+e.  Do the data appear to be skewed? Explain.
+
+    ```{r}
+
+    # 计算偏斜度
+    skewness_value <- skewness(data$PPG)
+    cat("skewness：",skewness_value)
+
+    # 绘制Q-Q图
+    qqnorm(data$PPG)
+    qqline(data$PPG, col = "red")
+    ```
+
+    **场均得分数据整体呈右偏（正偏）**——即大多数球员的得分集中在较低区间，而少数球员（明星球员）得分非常高，导致整体分布右偏。
+
+    *解释：*
+
+    -   *偏度值：偏度值大于0（1.124025），表明数据呈右偏（正偏）。这意味着数据的长尾在右侧，即极端值偏向于较大的数值。*
+
+    -   *Q-Q图：红色的对角线表示如果样本数据完全符合正态分布，样本分位数应该落在这条线上——如果数据点大致沿着参考线排列，则样本数据接近正态分布。但从图中可以看到，在左侧（负的理论分位数）和右侧（正的理论分位数）都有明显的偏离，尤其是右侧的偏离更为明显。这进一步支持了数据向右偏斜的观点。*
+
+f.  What percentage of the players averaged at least 20 points per game?
+
+    ```{r}
+    # 场均20以上的人数/总人数
+    cat((sum(data$PPG >= 20) / nrow(data)) * 100,'%')
+    ```
+
+    *解释：从累计频率分布也可直观看出（100%减去(18,20]对应的累计频率78%）。*
+
+**Question #3:** A researcher reports survey results by stating that the standard error of the mean is 20. The population standard deviation is 500.
+
+a.  How large was the sample used in this survey?
+
+    ```{r}
+    # 计算样本大小
+    sigma <- 500
+    SE <- 20
+    n <- (sigma / SE)^2
+    n
+    ```
+
+    *解释：*
+
+    *标准误差（Standard Error, SE）的公式：* $$ SE = \frac{\sigma}{\sqrt{n}} $$*其中* $SE$ *是标准误差，*$\sigma$ 是总体标准差，$n$ *是样本大小。则：*$$ n = \left(\frac{\sigma}{SE}\right)^2 $$
+
+b.  What is the probability that the point estimate was within ±25 of the population mean?
+
+    ```{r}
+    # 只需要计算去掉两个尾部还剩余的累计概率，两个下尾概率相减
+    probability <- pnorm(25 / SE) - pnorm(-25 / SE)
+    probability
+    ```
+
+    *解释：*
+
+    *为了找到点估计（样本均值）在总体均值 ±25 范围内的概率，考虑n=625是一个相当大的样本，我们可以直接使用正态分布的性质。  首先，算范围 ±25 内的 z -score：*
+
+    $$ z = \frac{\bar{x} - \mu}{SE} $$
+
+    *其中：* $\bar{x}$ *是样本均值，*$\mu$ *是总体均值，* $SE$ *是均值的标准误差。 \
+    对于* $x = \mu + 25$*：*
+
+    $$ z_1 = \frac{(\mu + 25) - \mu}{20} = \frac{25}{20} = 1.25 $$
+
+    *对于* $x = \mu - 25$*：*
+
+    $$ z_2 = \frac{(\mu - 25) - \mu}{20} = \frac{-25}{20} = -1.25 $$*故只需求*$z$ *在 -1.25 和 1.25 之间的概率为：*$P(-1.25 < Z < 1.25) = P(1.25) - P(-1.25)$
+
+**Question #4:** Young Professional Magazine (Attached Data: Professional)
+
+*Young Professional* magazine was developed for a target audience of recent college graduates who are in their first 10 years in a business/professional career. In its two years of publication, the magazine has been fairly successful. Now the publisher is interested in expanding the magazine’s advertising base. Potential advertisers continually ask about the demographics and interests of subscribers to *young Professionals*. To collect this information, the magazine commissioned a survey to develop a profile of its subscribers. The survey results will be used to help the magazine choose articles of interest and provide advertisers with a profile of subscribers. As a new employee of the magazine, you have been asked to help analyze the survey results.
+
+Some of the survey questions follow:
+
+1.  What is your age?
+
+2.  Are you: Male\_\_\_\_\_\_\_\_\_ Female\_\_\_\_\_\_\_\_\_\_\_
+
+3.  Do you plan to make any real estate purchases in the next two years?
+
+    Yes\_\_\_\_\_\_ No\_\_\_\_\_\_
+
+4.  What is the approximate total value of financial investments, exclusive of your
+
+    home, owned by you or members of your household?
+
+5.  How many stock/bond/mutual fund transactions have you made in the past year?
+
+6.  Do you have broadband access to the Internet at home? Yes\_\_\_\_\_\_ No\_\_\_\_\_\_
+
+7.  Please indicate your total household income last year. \_\_\_\_\_\_\_\_\_\_\_
+
+8.  Do you have children? Yes\_\_\_\_\_\_ No\_\_\_\_\_\_
+
+The file entitled Professional contains the responses to these questions.
+
+**Managerial Report:**
+
+Prepare a managerial report summarizing the results of the survey. In addition to statistical summaries, discuss how the magazine might use these results to attract advertisers. You might also comment on how the survey results could be used by the magazine’s editors to identify topics that would be of interest to readers. Your report should address the following issues, but do not limit your analysis to just these areas.
+
+a.  Develop appropriate descriptive statistics to summarize the data.
+
+    ```{r}
+
+    # 加载数据
+    professional <- read.csv("./data/Professional.csv")
+    # 描述性统计
+    skim(professional)
+    # 直接用DataExplorer中的create_report可生成报告
+    # create_report(professional)
+    # 查看下数据集的缺失值情况
+    plot_missing(professional)
+    # 查看分类变量的分布情况
+    plot_bar(professional)
+    # 查看连续变量的分布情况
+    plot_histogram(professional)
+    # 查看连续变量的qq图
+    plot_qq(professional)
+    # 查看变量的相关图
+    plot_correlation(professional)
+    ```
+
+    *解释：通过skimr和DataExplorer两个包可快速做描述性统计。*
+
+b.  Develop 95% confidence intervals for the mean age and household income of subscribers.
+
+    ```{r}
+    # 计算平均年龄的95%置信区间
+    t.test(professional$Age, conf.level = 0.95)
+
+    # 计算平均家庭收入的95%置信区间
+    t.test(professional$`Household.Income....`, conf.level = 0.95)
+
+    cat('95% ci for the mean age: ', t.test(professional$Age, conf.level = 0.95)$conf.int, '\n')
+    cat('95% ci for the mean household income of subscribers: ', t.test(professional$`Household.Income....`, conf.level = 0.95)$conf.int, '\n')
+    ```
+
+    *解释：这里使用t-test而非z-test做单样本检验——虽然样本足够大（\>30），但总体方差未知。直接取conf.int作为结果。*
+
+c.  Develop 95% confidence intervals for the proportion of subscribers who have broadband access at home and the proportion of subscribers who have children.
+
+    ```{r}
+    # 计算有宽带接入比例的95%置信区间
+    prop.test(sum(professional$`Broadband.Access.` == "Yes"), nrow(professional), conf.level = 0.95)
+
+    # 计算有孩子比例的95%置信区间
+    prop.test(sum(professional$`Have.Children.` == "Yes"), nrow(professional), conf.level = 0.95)
+
+    cat('95% ci for the proportion of subscribers who have broadband access at home:  ', prop.test(sum(professional$`Broadband.Access.` == "Yes"), nrow(professional), conf.level = 0.95)$conf.int, '\n')
+    cat('95% ci for the proportion of subscribers who have children: ', prop.test(sum(professional$`Have.Children.` == "Yes"), nrow(professional), conf.level = 0.95)$conf.int, '\n')
+    ```
+
+    *解释：这里使用prop.test来执行单样本比例检验，直接取conf.int作为结果。*
+
+d.  Would *Young Professional* be a good advertising outlet for online brokers? Justify your conclusion with statistical data.
+
+    ```{r}
+    # 计算平均交易次数的95%置信区间
+    t.test(professional$`Number.of.Transactions`, conf.level = 0.95)
+    # 计算平均家庭收入的95%置信区间
+    t.test(professional$`Value.of.Investments....`, conf.level = 0.95)
+    ```
+
+    **是的**。从之前的描述性统计和推断性统计我们可以看出，对于读者总体，可得出如下合理推测：
+
+    -   投资价值（Value of Investments）、交易次数（Number of Transactions）、家庭收入（Household Income）均呈现明显明显右偏的趋势，证明杂志有相当一部分读者可能是高净值个人，有较高的收入水平和投资活动，他们可能对更复杂的金融产品和服务感兴趣，对于在线经纪人而言，相当于有了大客户基础。
+
+    -   年龄（Age）的均值为30左右，说明读者群体相对年轻，处于职业生涯的早期阶段，他们更有可能尝试一些新鲜事物，例如在线经纪人服务。
+
+    -   宽带接入（Broadband Access）在6成左右，说明大多数读者拥有宽带接入，对技术较为熟悉，更可能便捷去使用在线经纪人服务。
+
+    综上，我认为《Young Professional》是一个不错的广告渠道，特别是针对在线经纪人的服务。
+
+e.  Would this magazine be a good place to advertise for companies selling educational software and computer games for young children?
+
+    **是的**。从之前的描述性统计和推断性统计我们可以看出，对于读者总体，可得出如下合理推测：
+
+    -   从有小孩的情况（Have Children）看，半数左右的家庭是有小孩的。这意味着有相当一部分读者可能是年轻家庭的父母，他们可能对教育软件和儿童电脑游戏感兴趣。
+
+    -   家庭收入（Household Income）的均值（74460）较高，这表明读者群体有较强的购买力，能够负担教育软件和儿童电脑游戏的费用。
+
+    -   宽带接入（Broadband Access）在6成左右，说明大多数读者可能更倾向于使用数字产品和服务，包括教育软件和在线游戏。
+
+    -   年龄（Age）的均值为30左右，说明读者群体相对年轻，他们可能更愿意为孩子寻找现代的教育工具和娱乐方式。
+
+    -   投资价值（Value of Investments）和交易次数（Number of Transactions）也能看出读者都有一定的投资基础和交易活动，他们可能对新技术和市场趋势较为敏感，这可能包括对教育科技产品的关注，以及对小孩的投资。
+
+    综上，我认为《Young Professional》杂志是教育软件和儿童电脑游戏公司的一个不错的广告投放渠道。
+
+f.  Comment on the types of articles you believe would be of interest to readers of *Young Professional*.
+
+    结合前面的描述性分析，以下三类文章我认为会更吸引读者：
+
+    -   **职业发展和职场技能\
+        **鉴于杂志的目标受众是年轻的专业人士，文章可以关注如何提升职业技能、职场晋升策略、工作与生活平衡等主题。
+
+    -   **财务管理和投资\
+        **读者群体对投资和交易有一定的参与度，因此，提供关于个人财务管理、投资策略、退休规划等方面的文章可能会受到欢迎。
+
+    -   **家庭和育儿\
+        **有孩子的读者是大多数，文章可以包括育儿技巧、家庭财务管理、如何平衡工作和家庭生活等主题。
+
+**Question #5:** Quality Associate, Inc. (Attached Data: Quality)
+
+Quality associates, inc., a consulting firm, advises its clients about sampling and statistical procedures that can be used to control their manufacturing processes. in one particular application, a client gave Quality associates a sample of 800 observations taken during a time in which that client’s process was operating satisfactorily. the sample standard deviation for these data was .21; hence, with so much data, the population standard deviation was assumed to be .21. Quality associates then suggested that random samples of size 30 be taken periodically to monitor the process on an ongoing basis. by analyzing the new samples, the client could quickly learn whether the process was operating satisfactorily. when the process was not operating satisfactorily, corrective action could be taken to eliminate the problem. the design specification indicated the mean for the process should be 12. the hypothesis test suggested by Quality associates follows.
+
+$$
+H_0: \mu = 12 \\
+H_1: \mu \neq 12
+$$
+
+Corrective action will be taken any time $H_0$ is rejected.
+
+Data are available in the data set Quality.
+
+**Managerial Report**
+
+a.  Conduct a hypothesis test for each sample at the .01 level of significance and determine what action, if any, should be taken. Provide the p-value for each test.
+
+    ```{r}
+    # 加载数据
+    quality <- read.csv("./data/Quality.csv")
+
+    # 对每个样本进行z检验
+    pv_results <- sapply(1:ncol(quality), function(i) {
+      z.test(quality[, i],mu = 12, sigma.x =0.21, conf.level = 0.99)$p.value
+    })
+
+    # 将结果与列名结合
+    column_names <- colnames(quality)
+    result_df_pv <- data.frame(sample = column_names, p_value = pv_results)
+
+    # 输出结果
+    print(result_df_pv)
+    ```
+
+    从p-value可以看出，**只有Sample 3有足够的证据拒绝原假设（p-value\<0.01），即有理由认为其平均值与设计规范的平均值12有显著差异，需要采取纠正措施**；其余的Sample（1、2和4） 没有足够的证据拒绝原假设，不需要采取纠正措施。
+
+    *解释：数据量为30，且总体标准差已知，用z检验。*
+
+b.  compute the standard deviation for each of the four samples. does the assumption of .21 for the population standard deviation appear reasonable?
+
+    ```{r}
+    # 定义卡方检验函数
+    chi_square_test <- function(sample_data, n = length(sample_data), sigma_0 = 0.21, alpha = 0.01) {
+      sample_sd <- sd(sample_data)  # 计算样本标准差
+      chi_squared <- ((n - 1) * sample_sd^2) / sigma_0^2
+      df <- n - 1
+      critical_value <- qchisq(1 - alpha / 2, df)
+      p_value <- 2 * pchisq(chi_squared, df, lower.tail = FALSE)
+      result <- list(sd = sample_sd, p_value = p_value, reject_H0 = as.character(p_value < alpha))
+      return(result)
+    }
+
+    # 对每个样本执行卡方检验
+    test_results <- lapply(1:ncol(quality), function(i) {
+      chi_square_test(quality[, i])
+    })
+
+    # 将结果与列名结合
+    column_names <- colnames(quality)
+    result_list <- mapply(function(name, result) c(unlist(result)), 
+                          column_names, test_results, SIMPLIFY = FALSE)
+
+    # 将结果列表转换为数据框
+    result_df <- data.frame(result_list)
+
+    # 查看结果
+    print(result_df)
+
+    ```
+
+    设原假设和备选假设如下：
+
+    -   $H0​: σ=0.21$
+
+    -   $H1​: σ≠0.21$
+
+    从卡方检验结果可以看出，所有四个样本的卡方检验的p值都大于0.01，因此不拒绝原假设，认为样本标准差与假设的总体标准差0.21没有显著差异。这表明**假设的总体标准差0.21是合理的**。
+
+    *解释：用卡方检验来看样本标准差和假设的总体标准差的差异。*
+
+c.  compute limits for the sample mean $\overline x$ around $\mu=12$ such that, as long as a new sample mean is within those limits, the process will be considered to be operating satisfactorily. if $\overline x$ exceeds the upper limit or if $\overline x$ is below the lower limit, corrective action will be taken. these limits are referred to as upper and lower control limits for quality control purposes.
+
+    ```{r}
+    # 定义计算控制限的函数
+    control_limits <- function(mu = 12, sigma = 0.21, n = nrow(quality), alpha = 0.01) {
+      z_critical <- qnorm(1 - alpha / 2)
+      se <- sigma / sqrt(n)
+      lower_limit <- mu - z_critical * se
+      upper_limit <- mu + z_critical * se
+      return(list(lower_limit = lower_limit, upper_limit = upper_limit))
+    }
+
+    # 将结果列表转换为数据框
+    result_df <- data.frame(control_limits())
+
+    # 查看结果
+    print(result_df)
+    ```
+
+    *解释：查找临界值-\>计算误差边界（E = Z × SE）-\>获得置信区间（CI=* $\overline x$ *± E），即控制限。*
+
+d.  discuss the implications of changing the level of significance to a larger value. what mistake or error could increase if the level of significance is increased?
+
+    **如果显著性水平增加，第一类错误（错误地拒绝真实的原假设）的风险也会增加**。结合本题，这意味着更有可能在过程实际上运行良好时采取纠正措施，从而导致不必要的成本和混乱。
+
+**Question #6:** Vacation occupancy rates were expected to be up during March 2008 in Myrtle Beach, South Carolina (*the sun news,* February 29, 2008). Data in the file Occupancy (Attached file **Occupancy**) will allow you to replicate the findings presented in the newspaper. The data show units rented and not rented for a random sample of vacation properties during the first week of March 2007 and March 2008.
+
+a.  Estimate the proportion of units rented during the first week of March 2007 and the first week of March 2008.
+
+    ```{r}
+    # 读取Excel文件, 第二行是表头
+    occupancy <- read_csv("./data/Occupancy.csv", skip = 1, show_col_types = FALSE)
+
+    # 先观察数据情况, 发现有缺失值
+    skim(occupancy)
+
+    prop_2007 <- sum(occupancy$`March 2007` == "Yes", na.rm = TRUE) / sum(!is.na(occupancy$`March 2007`))
+    cat("the proportion of units rented during the first week of March 2007:", prop_2007, "\n")
+
+    prop_2008 <- sum(occupancy$`March 2008` == "Yes", na.rm = TRUE) / sum(!is.na(occupancy$`March 2008`))
+    cat("the proportion of units rented during the first week of March 2008:", prop_2008, "\n")
+    ```
+
+b.  Provide a 95% confidence interval for the difference in proportions.
+
+    ```{r}
+    # 双侧计算95%置信区间
+    test_result <- prop.test(c(sum(occupancy$`March 2007` == "Yes", na.rm = TRUE), 
+                               sum(occupancy$`March 2008` == "Yes", na.rm = TRUE)), 
+                             c(sum(!is.na(occupancy$`March 2007`)), 
+                               sum(!is.na(occupancy$`March 2008`))), 
+                             alternative = c("two.sided"),
+                             conf.level = 0.95)
+    test_result
+    # 输出95%置信区间
+    cat("95% confidence interval:", test_result$conf.int, "\n")
+    ```
+
+    *解释：检测两个比例是否有显著差异，而不关心差异的方向时，使用双侧检验（two.sided）。*
+
+c.  On the basis of your findings, does it appear March rental rates for 2008 will be up from those a year earlier?
+
+    ```{r}
+    # 左侧95%置信区间
+    test_result <- prop.test(c(sum(occupancy$`March 2007` == "Yes", na.rm = TRUE), 
+                               sum(occupancy$`March 2008` == "Yes", na.rm = TRUE)), 
+                             c(sum(!is.na(occupancy$`March 2007`)), 
+                               sum(!is.na(occupancy$`March 2008`))), 
+                             alternative = c("less"),
+                             conf.level = 0.95)
+    test_result
+    ```
+
+    **是的。**通过单侧（左侧）检验（less）我们可以看出，备选假设是“2007年3月的租赁率小于2008年3月租赁率”，p-value（0.01811）小于显著性水平（0.05），则有理由推翻原假设，支持备选假设——即**2008年3月租赁率相较2007年3月有显著提升**。
+
+    *解释：检测两个比例是否有显著差异，且关心差异的方向时，使用单侧检验（less or greater）。*
+
+**Question #7**: **Air Force Training Program** (data file: Training)
+
+An air force introductory course in electronics uses a personalized system of instruction whereby each student views a videotaped lecture and then is given a programmed instruc-tion text. the students work independently with the text until they have completed the training and passed a test. Of concern is the varying pace at which the students complete this portion of their training program. Some students are able to cover the programmed instruction text relatively quickly, whereas other students work much longer with the text and require additional time to complete the course. The fast students wait until the slow students complete the introductory course before the entire group proceeds together with other aspects of their training.
+
+A proposed alternative system involves use of computer-assisted instruction. In this method, all students view the same videotaped lecture and then each is assigned to a computer terminal for further instruction. The computer guides the student, working independently, through the self-training portion of the course.
+
+To compare the proposed and current methods of instruction, an entering class of 122 students was assigned randomly to one of the two methods. one group of 61 students used the current programmed-text method and the other group of 61 students used the proposed computer-assisted method. The time in hours was recorded for each student in the study. Data are provided in the data set training (see Attached file).
+
+**Managerial Report**
+
+a.  use appropriate descriptive statistics to summarize the training time data for each method. what similarities or differences do you observe from the sample data?
+
+    ```{r}
+    # 导入数据
+    training <- read.csv("./data/Training.csv")
+
+    # 描述性统计
+    skim(training)
+    ```
+
+    **相似之处：**
+
+    -   数据完整度（complete_rate）一致，两组数据中都没有缺失值。
+
+    -   中位数（p50）一样，均值（mean）基本一样，从直方图（hist）也能看出，两个变量的中心趋势非常接近，数据分布较为对称。
+
+    **差异之处：**
+
+    -   当前方法（Current）相对提议方法（Proposed），最小值（p0）、第一四分位数（p25）更小，第三四分位数（p75）、最大值（p100）更大，标准差（sd）更大。
+
+b.  Comment on any difference between the population means for the two methods. Discuss your findings.
+
+    ```{r}
+    var.test(training$Current, training$Proposed)
+    t.test(training$Current, training$Proposed, var.equal = FALSE)
+    ```
+
+    从两个样本t-test的结果可看出，p 值为 0.5481，远大于 0.05，因此没有足够的证据拒绝原假设（均值无差异），故我们认为**当前方法和提议方法的均值没有显著差异。**
+
+    *解释：使用t.test()函数进行独立样本t-test时，参数var.equal是一个逻辑值，用于指定是否假设两个独立样本的总体方差相等。这是一个重要的假设，因为当两个样本的方差不相等时，t检验的计算方法会有所不同。因此先通过f-test（var.test）来检验两个样本的方差是否相等。本题备选假设是方差之比不为1，即不相等，p值为0.000578，远小于0.05，故认为总体方差不相等，var.equal设为FALSE。*
+
+c.  compute the standard deviation and variance for each training method. conduct a hypothesis test about the equality of population variances for the two training methods. Discuss your findings.
+
+    ```{r}
+    # 定义函数求标准差和方差
+    sd_var_func <- function(sample_data) {
+      sample_sd <- sd(sample_data)  
+      sample_var <- var(sample_data)  
+      result <- list(sd = sample_sd, var = sample_var)
+      return(result)
+    }
+
+    # 对每个样本执行卡方检验
+    sd_var <- lapply(1:ncol(training), function(i) {
+      sd_var_func(training[, i])
+    })
+
+    # 将结果与列名结合
+    column_names <- colnames(training)
+    result_list <- mapply(function(name, result) c(unlist(result)), 
+                          column_names, sd_var, SIMPLIFY = FALSE)
+
+    # 将结果列表转换为数据框
+    result_df <- data.frame(result_list)
+
+    # 查看结果
+    print(result_df)
+
+    ```
+
+    基于上一题对方差的f-test，可以推断出**当前方法和提议方法的总体方差有显著差异，提议方法有更小的标准差和方差。**
+
+d.  what conclusion can you reach about any differences between the two methods? what is your recommendation? explain.
+
+    **提议方法更好。虽然两者在**平均值的差异不大，但提议方法的方差更小，意味着其波动性更小——即学生更有可能在大致相同的时间完成培训，从而更有可能解决题目中提出的“快学生等慢学生完成后才能一起继续”的核心问题。
+
+e.  can you suggest other data or testing that might be desirable before making a final decision on the training program to be used in the future?
+
+    **建议收集两种方法学习效果（考试成绩）的数据。**目前提供的数据只能说明提议方法能够优化培训时间的波动性，但对于学生而言，培训最终的目的还是考试，考试成绩是否会因为提议方法更优尚未可知。因此，**建议在最终决定是否切换到提议方法之前，通过分析考试成绩来评估两种方法的培训效果。**
+
+**Question #8**: The Toyota Camry is one of the best-selling cars in North America. The cost of a previously owned Camry depends upon many factors, including the model year, mileage, and condition. To investigate the relationship between the car’s mileage and the sales price for a 2007 model year Camry, Attached data file Camry show the mileage and sale price for 19 sales (Pricehub website, February 24, 2012).
+
+a.  Develop a scatter diagram with the car mileage on the horizontal axis and the price on the vertical axis.
+
+    ```{r}
+    # 载入数据
+    camry <- read.csv("./data/Camry.csv")
+
+    # 绘制散点图
+    plot(camry$Miles, camry$Price, xlab = "Miles (1000s)", ylab = "Price ($1000s)", main = "Scatter Plot of Miles vs Price")
+    ```
+
+b.  what does the scatter diagram developed in part (a) indicate about the relationship between the two variables?
+
+    从散点图可以看出，里程和价格之间似乎存在**负相关**关系——**随着里程的增加，价格基本呈下降趋势**。但考虑样本数量（19）较小，对总体数据的关系代表性不足。
+
+c.  Develop the estimated regression equation that could be used to predict the price (\$1000s) given the miles (1000s).
+
+    ```{r}
+
+    # 线性模型
+    linear_model <- lm(Price...1000s. ~ Miles..1000s., data = camry)
+    summary(linear_model)
+
+    # 二次多项式模型
+    poly2_model <- lm(Price...1000s. ~ poly(Miles..1000s., 2), data = camry)
+    summary(poly2_model)
+
+    # 三次多项式模型
+    poly3_model <- lm(Price...1000s. ~ poly(Miles..1000s., 3), data = camry)
+    summary(poly3_model)
+
+    # 对数模型
+    log_model <- lm(Price...1000s. ~ log(Miles..1000s.), data = camry)
+    summary(log_model)
+
+    # 指数模型
+    exp_model <- lm(Price...1000s. ~ exp(Miles..1000s.), data = camry)
+    summary(exp_model)
+
+    # 比较模型的AIC和BIC
+    aic_values <- c(linear_model = AIC(linear_model), poly2_model = AIC(poly2_model), poly3_model = AIC(poly3_model), log_model = AIC(log_model), exp_model = AIC(exp_model))
+    bic_values <- c(linear_model = BIC(linear_model), poly2_model = BIC(poly2_model), poly3_model = BIC(poly3_model), log_model = BIC(log_model), exp_model = BIC(exp_model))
+
+    # 查找AIC值最小的模型
+    min_aic_index <- which.min(aic_values)
+    min_aic_model_name <- names(aic_values)[min_aic_index]
+
+    # 查找BIC值最小的模型
+    min_bic_index <- which.min(bic_values)
+    min_bic_model_name <- names(bic_values)[min_bic_index]
+
+    # 打印结果
+    cat("The model with the lowest AIC is:", min_aic_model_name, "with AIC:", aic_values[min_aic_index], "\n")
+    cat("The model with the lowest BIC is:", min_bic_model_name, "with BIC:", bic_values[min_bic_index], "\n")
+
+
+    # 使用原始数据生成预测值
+    fit_poly3 <- lm(Price...1000s. ~ poly(Miles..1000s., 3), data = camry)
+
+    # 绘制原始数据点
+    plot(camry$Miles, camry$Price, xlab = "Miles (1000s)", ylab = "Price ($1000s)", main = "Fitted Line for Camry Prices", col = "blue")
+
+    # 生成一系列Miles值用于绘制Poly3拟合线
+    miles_seq <- seq(from = min(camry$Miles), to = max(camry$Miles), length.out = 100)
+    # 生成Poly3对应的预测值
+    predicted_prices <- predict(fit_poly3, newdata = data.frame(Miles..1000s. = miles_seq))
+
+    # 绘制Poly3拟合线
+    lines(miles_seq, predicted_prices, col = "red", lwd = 2)
+
+
+    fit_line <- lm(Price...1000s. ~ Miles..1000s., data = camry)
+
+    # 绘制Line拟合线
+    abline(fit_line, predicted_prices, col = "green", lwd = 2)
+
+    # 添加图例
+    legend("topright", legend = c("Actual Data", "Poly3 Fitted Line", "Line Fitted Line"), col = c("blue", "red", "green"), lty = c(0, 1, 1), pch = c(19, NA, NA))
+    ```
+
+    如果回归指的是线性回归，带入系数和截距可知方程为： $\text{Price} = -0.05877 \times \text{Miles} + 16.46976$
+
+    *解释：从拟合度最优的角度考虑，线性不一定拟合最优。为此尝试了四种简单的非线性回归，比较最优（最低）AIC和BIC发现，三次多项式回归方程拟合度上比线性回归更优：*
+
+    $\text{Price} = 12.5474 - 6.8672 \cdot \text{Miles} - 1.3031 \cdot \text{Miles}^2 - 3.4091 \cdot \text{Miles}^3$
+
+d.  Test for a significant relationship at the .05 level of significance.
+
+    从p-value为0.0003475远小于0.05可看出，**线性模型整体上是统计显著的。**
+
+e.  Did the estimated regression equation provide a good fit? Explain.
+
+    **是的**。从R-squared为0.5387可以看出，**线性模型解释了53.87%的因变量变异。**
+
+f.  Provide an interpretation for the slope of the estimated regression equation.
+
+    线性回归方程的斜率为-0.05877，这意味着**汽车里程每增加1000英里，价格预计下降58.77美元**。
+
+g.  Suppose that you are considering purchasing a previously owned 2007 Camry that has been driven 60,000 miles. Using the estimated regression equation developed in part (c), predict the price for this car. Is this the price you would offer the seller.
+
+    ```{r}
+    # 使用模型进行预测
+    new_data <- data.frame(Miles..1000s. = c(60))
+    linear_model_predicted_price <- predict(linear_model, newdata = new_data)
+    cat('predicted price of the linear model is', linear_model_predicted_price,'\n')
+
+    #poly3_model_predicted_price <- predict(poly3_model, newdata = new_data)
+    #cat('predicted price of the poly3 model is', poly3_model_predicted_price,'\n')
+    ```
+
+    由上述预测结果可知，**2007款Camry行驶了60,000英里后的预测价格为12.94332，即12,943.32美元**。这个价格来源于已有数据建模，可以作为向卖家提供的参考价格（技术层面有一定说服力），但维度过于单一，实际购买时还需要考虑其他因素，如实际车况和当下的市场需求等。
+
+**Question #9:** 附件WE.xlsx是某提供网站服务的Internet服务商的客户数据。数据包含了6347名客户在11个指标上的表现。其中”流失“指标中0表示流失，”1“表示不流失，其他指标含义看变量命名。
+
+a.  通过可视化探索流失客户与非流失客户的行为特点（或特点对比），你能发现流失与非流失客户行为在哪些指标有可能存在显著不同？
+
+    ```{r}
+    # 载入数据
+    we <- read_excel("./data/WE.xlsx")
+    churned_we <- we %>% filter(流失 == 0)
+    non_churned_we <- we %>% filter(流失 == 1)
+
+    # 描述性统计
+    # 查看变量的相关图
+    skim(churned_we)
+    skim(non_churned_we)
+
+
+    ```
+
+    从统计结果能看出，流失客户与非流失客户的结果集，**除了客户ID（无意义）和流失字段本身之外，其余11个字段均有不同，是否显著不同需要进一步测试**。
+
+b.  通过均值比较的方式验证上述不同是否显著。
+
+    ```{r}
+    # 初始化一个空的数据框来存储t.test的结果
+    t_test_results <- data.frame(
+      variable = character(),
+      estimate1 = numeric(),
+      estimate2 = numeric(),
+      statistic = numeric(),
+      p.value = numeric(),
+      stringsAsFactors = FALSE
+    )
+
+    # 遍历每一个字段进行t.test
+    variables <- setdiff(names(we), c("流失", "客户ID"))
+
+    for (var in variables) {
+       # 对每一对变量进行方差检验
+      var_test_result <- var.test(as.numeric(churned_we[[var]]), as.numeric(non_churned_we[[var]]))
+
+      # 对每一对变量进行t.test
+      t_test_result <- t.test(as.numeric(churned_we[[var]]), as.numeric(non_churned_we[[var]]), var.equal = var_test_result$p.value > 0.05)
+
+      # 将结果添加到数据框中
+      t_test_results <- rbind(t_test_results, data.frame(
+        variable = var,
+        estimate1 = t_test_result$estimate[1],
+        estimate2 = t_test_result$estimate[2],
+        statistic = t_test_result$statistic,
+        p.value = t_test_result$p.value,
+        is.significant = t_test_result$p.value < 0.05
+      ))
+    }
+
+    # 查看结果
+    print(t_test_results)
+    ```
+
+    由t.test结果可以看出，**以0.05为显著性水平，则**：
+
+    -   **显著的指标有：当月客户幸福指数、客户幸福指数相比上月变化、当月客户支持、当月服务优先级、当月登录次数、博客数相比上月的变化、客户使用期限、访问间隔变化**
+
+    -   **不显著的指标有：客户支持相比上月的变化、服务优先级相比上月的变化、访问次数相比上月的增加**
+
+c.  以”流失“为因变量，其他你认为重要的变量为自变量（提示：a、b两步的发现），建立回归方程对是否流失进行预测。
+
+    ```{r}
+    # 建立逻辑回归模型
+    model <- glm(流失 ~ 当月客户幸福指数+客户幸福指数相比上月变化+当月客户支持+当月服务优先级+当月登录次数+博客数相比上月的变化+客户使用期限+访问间隔变化, data = we, family = binomial)
+    summary(model)
+    ```
+
+    *解释：选取均值不同最显著的作为特征来建模。*
+
+d.  根据上一步预测的结果，对尚未流失（流失=0）的客户进行流失可能性排序，并给出流失可能性最大的前100名用户ID列表。
+
+    ```{r}
+    # 预测概率
+    we$predictions <- predict(model, type = "response")
+
+    # 排序
+    sorted_data <- we %>% 
+      filter(流失 == 1) %>% 
+      arrange(desc(predictions))
+
+    # 获取流失可能性最大的前100名用户ID和预测概率
+    top_100 <- sorted_data %>% 
+      top_n(100, predictions)
+
+    # 选择并打印客户ID和预测概率
+    top_100 <- top_100 %>% select(客户ID, predictions)
+    print(top_100)
+    ```
+
+    *解释：**本小题描述似乎有误，尚未流失的客户应该为(流失 = 1)，因为”1“表示不流失**。按这样理解，可通过`type = "response"`返回模型预测的概率值再来倒序输出top100。*
