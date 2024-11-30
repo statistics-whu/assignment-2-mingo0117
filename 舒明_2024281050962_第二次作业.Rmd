@@ -479,11 +479,11 @@ b.  compute the standard deviation for each of the four samples. does the assump
     # 定义卡方检验函数
     chi_square_test <- function(sample_data, n = length(sample_data), sigma_0 = 0.21, alpha = 0.01) {
       sample_sd <- sd(sample_data)  # 计算样本标准差
-      chi_squared <- ((n - 1) * sample_sd^2) / sigma_0^2
+      chi_squared_statistic <- ((n - 1) * sample_sd^2) / sigma_0^2
       df <- n - 1
-      critical_value <- qchisq(1 - alpha / 2, df)
-      p_value <- 2 * pchisq(chi_squared, df, lower.tail = FALSE)
-      result <- list(sd = sample_sd, p_value = p_value, reject_H0 = as.character(p_value < alpha))
+      lower_critical_value <- qchisq(alpha/2, df)
+      upper_critical_value <- qchisq(1 - alpha/2, df)
+      result <- list(sd = sample_sd, lower_critical_value = lower_critical_value, chi_squared_statistic = chi_squared_statistic ,upper_critical_value = upper_critical_value, reject_H0 = as.character(chi_squared_statistic  <= lower_critical_value || chi_squared_statistic  >= upper_critical_value))
       return(result)
     }
 
@@ -511,9 +511,9 @@ b.  compute the standard deviation for each of the four samples. does the assump
 
     -   $H1​: σ≠0.21$
 
-    从卡方检验结果可以看出，所有四个样本的卡方检验的p值都大于0.01，因此不拒绝原假设，认为样本标准差与假设的总体标准差0.21没有显著差异。这表明**假设的总体标准差0.21是合理的**。
+    从卡方检验结果可以看出，所有四个样本的卡方统计量都在置信区间内，因此不拒绝原假设，认为样本标准差与假设的总体标准差0.21没有显著差异。这表明**假设的总体标准差0.21是合理的**。
 
-    *解释：用卡方检验来看样本标准差和假设的总体标准差的差异。*
+    *解释：用双侧卡方检验来看样本标准差和假设的总体标准差的差异。卡方分布不对称，故对比临界值来判断。*
 
 c.  compute limits for the sample mean $\overline x$ around $\mu=12$ such that, as long as a new sample mean is within those limits, the process will be considered to be operating satisfactorily. if $\overline x$ exceeds the upper limit or if $\overline x$ is below the lower limit, corrective action will be taken. these limits are referred to as upper and lower control limits for quality control purposes.
 
